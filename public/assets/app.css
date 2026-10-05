@@ -44,10 +44,28 @@ footer {
 }
 
 .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
     font-weight: 700;
     font-size: 1.25rem;
     color: var(--text);
     text-decoration: none;
+}
+
+.logo {
+    flex: none;
+}
+
+.logo-bg {
+    fill: var(--accent);
+}
+
+.logo-mark {
+    fill: none;
+    stroke: var(--accent-text);
+    stroke-width: 2.25;
+    stroke-linecap: round;
 }
 
 main {
@@ -158,6 +176,35 @@ a {
 footer {
     color: var(--muted);
     font-size: 0.875rem;
+}
+
+footer nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.credit {
+    margin-bottom: 0;
+}
+
+main h2 {
+    margin: 1.5rem 0 0.5rem;
+    font-size: 1.125rem;
+}
+
+main h3 {
+    margin: 1.25rem 0 0.25rem;
+    font-size: 1rem;
+}
+
+main ol,
+main ul {
+    padding-left: 1.25rem;
+}
+
+main li + li {
+    margin-top: 0.25rem;
 }
 
 @media (max-width: 30rem) {

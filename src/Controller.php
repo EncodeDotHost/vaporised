@@ -27,6 +27,10 @@ final class Controller
 
         if ($path === '/' && $isGet) {
             $this->showCreate();
+        } elseif ($path === '/help' && $isGet) {
+            $this->showHelp();
+        } elseif ($path === '/privacy' && $isGet) {
+            $this->render('privacy', ['title' => 'Privacy policy', 'indexable' => true]);
         } elseif ($path === '/' && $isPost) {
             $this->create();
         } elseif ($path === '/challenge' && $isGet) {
@@ -54,7 +58,20 @@ final class Controller
             'maxViews' => (int) $this->config->get('max_views'),
             'maxSecretChars' => (int) $this->config->get('max_secret_chars'),
             'maxPassphraseChars' => self::MAX_PASSPHRASE_CHARS,
+            'indexable' => $error === null,
         ], $status);
+    }
+
+    private function showHelp(): void
+    {
+        $this->render('help', [
+            'title' => 'Help',
+            'indexable' => true,
+            'ttlChoices' => $this->config->ttlChoices(),
+            'maxViews' => (int) $this->config->get('max_views'),
+            'maxSecretChars' => (int) $this->config->get('max_secret_chars'),
+            'maxFailedAttempts' => (int) $this->config->get('max_failed_attempts'),
+        ]);
     }
 
     private function create(): void
@@ -191,6 +208,9 @@ final class Controller
     {
         http_response_code($status);
         header('Content-Type: text/html; charset=utf-8');
+        // Only public information pages are indexable. Secret pages never are.
+        $vars['robots'] = ($vars['indexable'] ?? false) ? 'index, follow' : 'noindex, nofollow';
+        header('X-Robots-Tag: ' . $vars['robots']);
         extract($vars, EXTR_SKIP);
         ob_start();
         require $this->templateDir . '/' . $template . '.php';
