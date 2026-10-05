@@ -178,14 +178,40 @@ footer {
     font-size: 0.875rem;
 }
 
+footer p {
+    margin: 0;
+}
+
+footer a {
+    color: var(--muted);
+}
+
+footer a:hover,
+footer a:focus-visible {
+    color: var(--text);
+}
+
+.footer-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem 1rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+}
+
 footer nav {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
 }
 
-.credit {
-    margin-bottom: 0;
+footer nav a + a::before {
+    content: "·";
+    display: inline-block;
+    margin: 0 0.5rem;
+    color: var(--muted);
 }
 
 main h2 {

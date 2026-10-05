@@ -6,6 +6,19 @@
     <meta name="robots" content="<?= e($robots) ?>">
     <meta name="referrer" content="no-referrer">
     <title><?= e($title) ?> – Vaporised</title>
+    <meta name="description" content="<?= e($description) ?>">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Vaporised">
+    <meta property="og:locale" content="en_GB">
+    <meta property="og:title" content="<?= e($title) ?> – Vaporised">
+    <meta property="og:description" content="<?= e($description) ?>">
+    <meta property="og:url" content="<?= e($pageUrl) ?>">
+    <meta property="og:image" content="<?= e($baseUrl) ?>/assets/og-image.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Two people look at a web page with a form, a tick, and a cross.">
+    <meta name="twitter:card" content="summary_large_image">
     <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
@@ -25,11 +38,13 @@
     </main>
     <footer>
         <p>No cookies. No identifiable information. When a secret expires, we purge it and keep no archives.</p>
-        <nav aria-label="Footer">
-            <a href="/help">Help</a>
-            <a href="/privacy">Privacy policy</a>
-        </nav>
-        <p class="credit">An <a href="https://www.encodegroup.co.uk/">Encode Group</a> project</p>
+        <div class="footer-bar">
+            <nav aria-label="Footer">
+                <a href="/help">Help</a>
+                <a href="/privacy">Privacy policy</a>
+            </nav>
+            <p class="credit">An <a href="https://www.encodegroup.co.uk/">Encode Group</a> project</p>
+        </div>
     </footer>
     <script src="/assets/app.js" defer></script>
 </body>

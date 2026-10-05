@@ -10,6 +10,8 @@ final class Controller
 {
     private const TOKEN_PATTERN = '[A-Za-z0-9_-]{43}';
     private const MAX_PASSPHRASE_CHARS = 200;
+    private const DEFAULT_DESCRIPTION = 'Send a password or other secret by a one-time link. '
+        . 'Encrypted, deleted after the last view or the time limit, and no cookies.';
 
     private ?PDO $pdo = null;
 
@@ -30,7 +32,11 @@ final class Controller
         } elseif ($path === '/help' && $isGet) {
             $this->showHelp();
         } elseif ($path === '/privacy' && $isGet) {
-            $this->render('privacy', ['title' => 'Privacy policy', 'indexable' => true]);
+            $this->render('privacy', [
+                'title' => 'Privacy policy',
+                'description' => 'What data Vaporised keeps, why, and for how long. No cookies, no analytics, no third parties.',
+                'canonicalPath' => '/privacy',
+            ]);
         } elseif ($path === '/' && $isPost) {
             $this->create();
         } elseif ($path === '/challenge' && $isGet) {
@@ -58,7 +64,7 @@ final class Controller
             'maxViews' => (int) $this->config->get('max_views'),
             'maxSecretChars' => (int) $this->config->get('max_secret_chars'),
             'maxPassphraseChars' => self::MAX_PASSPHRASE_CHARS,
-            'indexable' => $error === null,
+            'canonicalPath' => $error === null ? '/' : null,
         ], $status);
     }
 
@@ -66,7 +72,8 @@ final class Controller
     {
         $this->render('help', [
             'title' => 'Help',
-            'indexable' => true,
+            'description' => 'How to send, read, and delete a secret with Vaporised.',
+            'canonicalPath' => '/help',
             'ttlChoices' => $this->config->ttlChoices(),
             'maxViews' => (int) $this->config->get('max_views'),
             'maxSecretChars' => (int) $this->config->get('max_secret_chars'),
@@ -208,8 +215,14 @@ final class Controller
     {
         http_response_code($status);
         header('Content-Type: text/html; charset=utf-8');
-        // Only public information pages are indexable. Secret pages never are.
-        $vars['robots'] = ($vars['indexable'] ?? false) ? 'index, follow' : 'noindex, nofollow';
+        // Only public information pages have a canonical path and are indexable.
+        // Other pages point og:url at the home page, so that a link preview never repeats a token.
+        $canonicalPath = $vars['canonicalPath'] ?? null;
+        $baseUrl = rtrim((string) $this->config->get('base_url'), '/');
+        $vars['robots'] = $canonicalPath !== null ? 'index, follow' : 'noindex, nofollow';
+        $vars['baseUrl'] = $baseUrl;
+        $vars['pageUrl'] = $baseUrl . ($canonicalPath ?? '/');
+        $vars['description'] ??= self::DEFAULT_DESCRIPTION;
         header('X-Robots-Tag: ' . $vars['robots']);
         extract($vars, EXTR_SKIP);
         ob_start();
