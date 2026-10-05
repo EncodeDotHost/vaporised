@@ -1,0 +1,18 @@
+Options -Indexes
+
+RewriteEngine On
+
+# Certificate validation files stay in the real document root.
+RewriteRule ^\.well-known/ - [L]
+
+# Block .git and all other dotfiles.
+RewriteRule (^|/)\. - [F]
+
+# Force HTTPS (not on a local development host).
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+# Serve everything from /public. No other folder is reachable.
+RewriteRule ^public/ - [L]
+RewriteRule ^(.*)$ public/$1 [L]

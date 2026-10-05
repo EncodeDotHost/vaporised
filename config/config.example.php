@@ -1,0 +1,52 @@
+<?php
+
+// Copy this file to one level above the document root, for example
+// /home/vaporised/vaporised-config.php, then set the values. Do not put the
+// real file in Git.
+//
+// Generate each key with:
+//   php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'
+
+return [
+    'base_url' => 'https://www.vaporised.co.uk',
+
+    'db' => [
+        'dsn' => 'mysql:host=localhost;dbname=DATABASE_NAME;charset=utf8mb4',
+        'user' => 'DATABASE_USER',
+        'password' => 'DATABASE_PASSWORD',
+    ],
+
+    // Three different 32-byte keys in base64.
+    // If you change master_key, all stored secrets become unreadable.
+    'master_key' => '',
+    'rate_limit_key' => '',
+    'pow_key' => '',
+
+    'max_secret_chars' => 10000,
+    'max_views' => 10,
+
+    // A secret with a passphrase is deleted after this many incorrect attempts.
+    'max_failed_attempts' => 10,
+
+    // Time limit choices in seconds. The app ignores values above 7 days (604800).
+    'ttl_choices' => [
+        300 => '5 minutes',
+        3600 => '1 hour',
+        86400 => '1 day',
+        259200 => '3 days',
+        604800 => '7 days',
+    ],
+
+    // Maximum requests for each hashed IP address in one window.
+    'rate_limit' => [
+        'window_seconds' => 3600,
+        'create' => 20,
+        'reveal' => 60,
+    ],
+
+    // Proof-of-work for secret creation. Each added bit doubles the browser work.
+    'pow' => [
+        'difficulty_bits' => 16,
+        'ttl_seconds' => 600,
+    ],
+];
