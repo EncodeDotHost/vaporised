@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="<?= e($robots) ?>">
     <meta name="referrer" content="no-referrer">
-    <title><?= e($title) ?> – Vaporised</title>
+    <title><?= e($pageTitle) ?></title>
     <meta name="description" content="<?= e($description) ?>">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Vaporised">
     <meta property="og:locale" content="en_GB">
-    <meta property="og:title" content="<?= e($title) ?> – Vaporised">
+    <meta property="og:title" content="<?= e($pageTitle) ?>">
     <meta property="og:description" content="<?= e($description) ?>">
     <meta property="og:url" content="<?= e($pageUrl) ?>">
     <meta property="og:image" content="<?= e($baseUrl) ?>/assets/og-image.png">

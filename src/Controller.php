@@ -10,8 +10,8 @@ final class Controller
 {
     private const TOKEN_PATTERN = '[A-Za-z0-9_-]{43}';
     private const MAX_PASSPHRASE_CHARS = 200;
-    private const DEFAULT_DESCRIPTION = 'Send a password or other secret by a one-time link. '
-        . 'Encrypted, deleted after the last view or the time limit, and no cookies.';
+    private const DEFAULT_DESCRIPTION = 'Send a password or other secret by a link that deletes itself '
+        . 'after it is read. Encrypted, no sign-up, and no cookies.';
 
     private ?PDO $pdo = null;
 
@@ -34,7 +34,8 @@ final class Controller
         } elseif ($path === '/privacy' && $isGet) {
             $this->render('privacy', [
                 'title' => 'Privacy policy',
-                'description' => 'What data Vaporised keeps, why, and for how long. No cookies, no analytics, no third parties.',
+                'description' => 'Vaporised sets no cookies, uses no analytics, and shares no data. '
+                    . 'See what we keep, why, and when we delete it.',
                 'canonicalPath' => '/privacy',
             ]);
         } elseif ($path === '/' && $isPost) {
@@ -58,6 +59,7 @@ final class Controller
     {
         $this->render('create', [
             'title' => 'Share a secret',
+            'pageTitle' => 'Vaporised – Send passwords by self-destructing link',
             'error' => $error,
             'old' => $old + ['secret' => '', 'ttl' => 86400, 'views' => 1],
             'ttlChoices' => $this->config->ttlChoices(),
@@ -72,7 +74,8 @@ final class Controller
     {
         $this->render('help', [
             'title' => 'Help',
-            'description' => 'How to send, read, and delete a secret with Vaporised.',
+            'description' => 'Step-by-step help to send, read, and delete a self-destructing secret link, '
+                . 'with answers to common questions.',
             'canonicalPath' => '/help',
             'ttlChoices' => $this->config->ttlChoices(),
             'maxViews' => (int) $this->config->get('max_views'),
@@ -223,6 +226,7 @@ final class Controller
         $vars['baseUrl'] = $baseUrl;
         $vars['pageUrl'] = $baseUrl . ($canonicalPath ?? '/');
         $vars['description'] ??= self::DEFAULT_DESCRIPTION;
+        $vars['pageTitle'] ??= $vars['title'] . ' – Vaporised';
         header('X-Robots-Tag: ' . $vars['robots']);
         extract($vars, EXTR_SKIP);
         ob_start();
