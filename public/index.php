@@ -25,7 +25,7 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header("Content-Security-Policy: default-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
 if (($_SERVER['HTTPS'] ?? 'off') !== 'off') {
-    header('Strict-Transport-Security: max-age=31536000');
+    header('Strict-Transport-Security: max-age=63072000; includeSubDomains; preload');
 }
 
 set_exception_handler(static function (Throwable $e): void {
