@@ -12,7 +12,7 @@
     <li>Set the <strong>Maximum views</strong>. The maximum is <?= e($maxViews) ?>.</li>
     <li>Optional: type a passphrase. Send the passphrase to the recipient by a different channel, for example by phone.</li>
     <li>Click <strong>Save the secret</strong>.</li>
-    <li>Copy the share link and send it to the recipient.</li>
+    <li>Copy the full share link, including the part after <code>#</code>, and send it to the recipient.</li>
     <li>Keep the delete link private. You can use it to delete the secret before it expires.</li>
 </ol>
 <p class="hint">We show the share link and the delete link only one time. Copy them before you close the page.</p>
@@ -53,8 +53,8 @@
 
 <h3>Why is JavaScript necessary?</h3>
 <p>
-    Before it saves a secret, your browser does a short calculation. This check stops automated misuse of the service.
-    You do not need JavaScript to read a secret.
+    Your browser encrypts the secret before it sends anything to us, and it decrypts the secret when you read it.
+    Before it saves a secret, your browser also does a short calculation. This check stops automated misuse of the service.
 </p>
 
 <h3>How long can a secret be?</h3>
@@ -62,9 +62,18 @@
 
 <h3>Can you see my secret?</h3>
 <p>
-    We encrypt each secret before we store it. The database keeps no copy of the share link.
-    The server decrypts a secret only when a person uses the share link.
-    A passphrase adds to the encryption, so without the passphrase the secret cannot be decrypted.
+    No. Your browser encrypts the secret before it leaves your device. The encryption key is the part of the share link
+    after <code>#</code>. Browsers never send that part to a server, so our server, our database, and our logs do not have it.
+    We store only the encrypted data and cannot decrypt it.
+</p>
+<p>
+    A passphrase adds to the encryption key. Without the passphrase, the full link is not sufficient to read the secret.
+</p>
+
+<h3>Why does the share link have a <code>#</code> in it?</h3>
+<p>
+    The part after <code>#</code> is the encryption key. Send the full link. If the recipient opens the link without
+    that part, the page tells them that the link is incomplete.
 </p>
 
 <h3>Is a passphrase necessary?</h3>

@@ -3,10 +3,8 @@
 CREATE TABLE IF NOT EXISTS secrets (
     id_hash          BINARY(32)       NOT NULL,  -- SHA-256 of the share token
     delete_hash      BINARY(32)       NOT NULL,  -- SHA-256 of the delete token
-    salt             BINARY(16)       NOT NULL,
-    nonce            BINARY(24)       NOT NULL,
-    ciphertext       MEDIUMBLOB       NOT NULL,  -- XChaCha20-Poly1305
-    has_passphrase   TINYINT UNSIGNED NOT NULL,
+    ciphertext       MEDIUMBLOB       NOT NULL,  -- Made by the browser (AES-256-GCM). The server has no key.
+    passphrase_hash  VARCHAR(128)     CHARACTER SET ascii NULL,  -- Argon2id, or NULL without a passphrase
     views_remaining  TINYINT UNSIGNED NOT NULL,
     failed_attempts  TINYINT UNSIGNED NOT NULL DEFAULT 0,
     expires_at       DATETIME         NOT NULL,

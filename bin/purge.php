@@ -5,7 +5,6 @@ declare(strict_types=1);
 // Cron script: deletes expired secrets, ended rate-limit windows, and expired challenges.
 
 use Vaporised\Config;
-use Vaporised\Crypto;
 use Vaporised\Database;
 use Vaporised\ProofOfWork;
 use Vaporised\RateLimiter;
@@ -23,7 +22,7 @@ $pdo = Database::connect($config);
 $limits = $config->get('rate_limit');
 $pow = $config->get('pow');
 
-$secrets = (new SecretRepository($pdo, new Crypto($config->key('master_key')), (int) $config->get('max_failed_attempts')))->purge();
+$secrets = (new SecretRepository($pdo, (int) $config->get('max_failed_attempts')))->purge();
 $rateLimits = (new RateLimiter($pdo, $config->key('rate_limit_key'), (int) $limits['window_seconds'], []))->purge();
 $challenges = (new ProofOfWork($config->key('pow_key'), (int) $pow['difficulty_bits'], (int) $pow['ttl_seconds']))->purge($pdo);
 

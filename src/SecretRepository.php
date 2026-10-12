@@ -7,35 +7,37 @@ namespace Vaporised;
 use PDO;
 use Throwable;
 
+/**
+ * Stores ciphertext that the browser made. The server cannot decrypt it:
+ * the key is in the share link after "#", which browsers never send.
+ */
 final class SecretRepository
 {
     public function __construct(
         private PDO $pdo,
-        private Crypto $crypto,
         private int $maxFailedAttempts
     ) {
     }
 
-    /** @return array{share_token: string, delete_token: string} */
-    public function create(string $plaintext, string $passphrase, int $ttlSeconds, int $views): array
+    /**
+     * @param string $ciphertext Opaque bytes from the browser.
+     * @return array{share_token: string, delete_token: string}
+     */
+    public function create(string $ciphertext, string $passphrase, int $ttlSeconds, int $views): array
     {
         $shareToken = Crypto::randomToken();
         $deleteToken = Crypto::randomToken();
-        $idHash = Crypto::hashToken($shareToken);
-        $box = $this->crypto->encrypt($plaintext, $passphrase, $idHash);
 
         $stmt = $this->pdo->prepare(
             'INSERT INTO secrets
-                (id_hash, delete_hash, salt, nonce, ciphertext, has_passphrase, views_remaining, failed_attempts, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 0, UTC_TIMESTAMP() + INTERVAL ? SECOND)'
+                (id_hash, delete_hash, ciphertext, passphrase_hash, views_remaining, failed_attempts, expires_at)
+             VALUES (?, ?, ?, ?, ?, 0, UTC_TIMESTAMP() + INTERVAL ? SECOND)'
         );
         $stmt->execute([
-            $idHash,
+            Crypto::hashToken($shareToken),
             Crypto::hashToken($deleteToken),
-            $box['salt'],
-            $box['nonce'],
-            $box['ciphertext'],
-            $passphrase === '' ? 0 : 1,
+            $ciphertext,
+            $passphrase === '' ? null : Crypto::hashPassphrase($passphrase),
             $views,
             $ttlSeconds,
         ]);
@@ -47,7 +49,8 @@ final class SecretRepository
     public function find(string $shareToken): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT has_passphrase FROM secrets WHERE id_hash = ? AND expires_at > UTC_TIMESTAMP()'
+            'SELECT passphrase_hash IS NOT NULL AS has_passphrase
+             FROM secrets WHERE id_hash = ? AND expires_at > UTC_TIMESTAMP()'
         );
         $stmt->execute([Crypto::hashToken($shareToken)]);
         $row = $stmt->fetch();
@@ -56,10 +59,10 @@ final class SecretRepository
     }
 
     /**
-     * Decrypt the secret and use one view. The row lock makes sure that
-     * simultaneous requests cannot exceed the view count.
+     * Check the passphrase, give out the ciphertext, and use one view. The row
+     * lock makes sure that simultaneous requests cannot exceed the view count.
      *
-     * @return array{status: 'ok', secret: string, views_remaining: int}|array{status: 'gone'}|array{status: 'bad_passphrase'}
+     * @return array{status: 'ok', ciphertext: string, views_remaining: int}|array{status: 'gone'}|array{status: 'bad_passphrase'}
      */
     public function reveal(string $shareToken, string $passphrase): array
     {
@@ -67,7 +70,7 @@ final class SecretRepository
         $this->pdo->beginTransaction();
         try {
             $stmt = $this->pdo->prepare(
-                'SELECT salt, nonce, ciphertext, has_passphrase, views_remaining, failed_attempts,
+                'SELECT ciphertext, passphrase_hash, views_remaining, failed_attempts,
                         (expires_at > UTC_TIMESTAMP()) AS live
                  FROM secrets WHERE id_hash = ? FOR UPDATE'
             );
@@ -84,15 +87,7 @@ final class SecretRepository
                 return ['status' => 'gone'];
             }
 
-            $secret = $this->crypto->decrypt($row['ciphertext'], $row['nonce'], $row['salt'], $passphrase, $idHash);
-
-            if ($secret === null) {
-                if (!$row['has_passphrase']) {
-                    // Not a passphrase error: the data or the master key changed.
-                    error_log('vaporised: a secret failed authentication');
-                    $this->pdo->commit();
-                    return ['status' => 'gone'];
-                }
+            if ($row['passphrase_hash'] !== null && !Crypto::verifyPassphrase($row['passphrase_hash'], $passphrase)) {
                 if ((int) $row['failed_attempts'] + 1 >= $this->maxFailedAttempts) {
                     $this->deleteRow($idHash);
                     $this->pdo->commit();
@@ -113,7 +108,7 @@ final class SecretRepository
             }
             $this->pdo->commit();
 
-            return ['status' => 'ok', 'secret' => $secret, 'views_remaining' => $viewsRemaining];
+            return ['status' => 'ok', 'ciphertext' => $row['ciphertext'], 'views_remaining' => $viewsRemaining];
         } catch (Throwable $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();

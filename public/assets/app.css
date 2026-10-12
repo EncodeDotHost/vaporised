@@ -173,6 +173,11 @@ a {
     color: var(--accent);
 }
 
+code {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.9em;
+}
+
 footer {
     color: var(--muted);
     font-size: 0.875rem;

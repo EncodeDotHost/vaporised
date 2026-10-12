@@ -46,6 +46,7 @@
             <p class="credit">An <a href="https://www.encodegroup.co.uk/">Encode Group</a> project</p>
         </div>
     </footer>
+    <script src="/assets/crypto.js" defer></script>
     <script src="/assets/app.js" defer></script>
 </body>
 </html>

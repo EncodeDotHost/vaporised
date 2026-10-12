@@ -10,6 +10,9 @@ final class Controller
 {
     private const TOKEN_PATTERN = '[A-Za-z0-9_-]{43}';
     private const MAX_PASSPHRASE_CHARS = 200;
+    /** Version byte, 16-byte salt, 12-byte iv, and 16-byte tag. Must match public/assets/crypto.js. */
+    private const CIPHERTEXT_OVERHEAD = 45;
+    private const GONE_TEXT = 'This secret does not exist, has expired, or has no views left.';
     private const DEFAULT_DESCRIPTION = 'Send a password or other secret by a link that deletes itself '
         . 'after it is read. Encrypted, no sign-up, and no cookies.';
 
@@ -38,7 +41,7 @@ final class Controller
                     . 'See what we keep, why, and when we delete it.',
                 'canonicalPath' => '/privacy',
             ]);
-        } elseif ($path === '/' && $isPost) {
+        } elseif ($path === '/secrets' && $isPost) {
             $this->create();
         } elseif ($path === '/challenge' && $isGet) {
             $this->challenge();
@@ -55,19 +58,17 @@ final class Controller
         }
     }
 
-    private function showCreate(?string $error = null, array $old = [], int $status = 200): void
+    private function showCreate(): void
     {
         $this->render('create', [
             'title' => 'Share a secret',
             'pageTitle' => 'Vaporised – Send passwords by self-destructing link',
-            'error' => $error,
-            'old' => $old + ['secret' => '', 'ttl' => 86400, 'views' => 1],
             'ttlChoices' => $this->config->ttlChoices(),
             'maxViews' => (int) $this->config->get('max_views'),
             'maxSecretChars' => (int) $this->config->get('max_secret_chars'),
             'maxPassphraseChars' => self::MAX_PASSPHRASE_CHARS,
-            'canonicalPath' => $error === null ? '/' : null,
-        ], $status);
+            'canonicalPath' => '/',
+        ]);
     }
 
     private function showHelp(): void
@@ -84,52 +85,53 @@ final class Controller
         ]);
     }
 
+    /**
+     * JSON endpoint. The browser sends ciphertext that it made with a key the
+     * server never sees. The server checks only the size and the form values.
+     */
     private function create(): void
     {
         if (!$this->limiter()->hit('create', $this->clientIp())) {
-            $this->tooManyRequests();
+            $this->json(['error' => 'You made too many requests. Try again later.'], 429);
             return;
         }
 
-        $secret = $this->postString('secret');
+        $ciphertext = Crypto::b64uDecode($this->postString('ciphertext'));
         $passphrase = $this->postString('passphrase');
         $ttl = (int) $this->postString('ttl');
         $views = (int) $this->postString('views');
-        $old = ['secret' => $secret, 'ttl' => $ttl, 'views' => $views];
 
-        $secret = str_replace("\r\n", "\n", $secret);
         $maxChars = (int) $this->config->get('max_secret_chars');
         $maxViews = (int) $this->config->get('max_views');
+        // Version, salt, iv, and tag, plus up to 4 bytes for each UTF-8 character.
+        $maxBytes = self::CIPHERTEXT_OVERHEAD + $maxChars * 4;
 
         $error = match (true) {
-            $secret === '' => 'Enter a secret.',
-            !mb_check_encoding($secret, 'UTF-8') => 'The secret is not valid text.',
-            mb_strlen($secret, 'UTF-8') > $maxChars => 'The secret is too long. The maximum is ' . $maxChars . ' characters.',
+            $ciphertext === null || strlen($ciphertext) < self::CIPHERTEXT_OVERHEAD => 'The encrypted secret is not valid.',
+            strlen($ciphertext) > $maxBytes => 'The secret is too long. The maximum is ' . $maxChars . ' characters.',
+            !mb_check_encoding($passphrase, 'UTF-8') => 'The passphrase is not valid text.',
             mb_strlen($passphrase, 'UTF-8') > self::MAX_PASSPHRASE_CHARS => 'The passphrase is too long.',
             !array_key_exists($ttl, $this->config->ttlChoices()) => 'Select a time limit from the list.',
             $views < 1 || $views > $maxViews => 'The view count must be from 1 to ' . $maxViews . '.',
             default => null,
         };
         if ($error !== null) {
-            $this->showCreate($error, $old, 422);
+            $this->json(['error' => $error], 422);
             return;
         }
 
         if (!$this->pow()->verify($this->pdo(), $this->postString('pow_challenge'), $this->postString('pow_nonce'))) {
-            $this->showCreate('The browser check failed. Try again. JavaScript is necessary to create a secret.', $old, 422);
+            $this->json(['error' => 'The browser check failed. Try again.'], 422);
             return;
         }
 
-        $tokens = $this->secrets()->create($secret, $passphrase, $ttl, $views);
+        $tokens = $this->secrets()->create($ciphertext, $passphrase, $ttl, $views);
         $baseUrl = rtrim((string) $this->config->get('base_url'), '/');
 
-        $this->render('created', [
-            'title' => 'Secret saved',
-            'shareUrl' => $baseUrl . '/s/' . $tokens['share_token'],
-            'deleteUrl' => $baseUrl . '/d/' . $tokens['delete_token'],
-            'ttlLabel' => $this->config->ttlChoices()[$ttl],
-            'views' => $views,
-            'hasPassphrase' => $passphrase !== '',
+        // The browser adds "#" and the key to the share link.
+        $this->json([
+            'share_url' => $baseUrl . '/s/' . $tokens['share_token'],
+            'delete_url' => $baseUrl . '/d/' . $tokens['delete_token'],
         ]);
     }
 
@@ -139,7 +141,7 @@ final class Controller
         echo json_encode($this->pow()->issue());
     }
 
-    private function showReveal(string $token, ?string $error = null, int $status = 200): void
+    private function showReveal(string $token): void
     {
         $found = $this->secrets()->find($token);
         if ($found === null) {
@@ -148,32 +150,31 @@ final class Controller
         }
         $this->render('confirm', [
             'title' => 'A secret is ready for you',
-            'error' => $error,
             'hasPassphrase' => $found['has_passphrase'],
             'maxPassphraseChars' => self::MAX_PASSPHRASE_CHARS,
-        ], $status);
+        ]);
     }
 
+    /** JSON endpoint. Gives out the ciphertext; the browser decrypts it with the key after "#". */
     private function reveal(string $token): void
     {
         if (!$this->limiter()->hit('reveal', $this->clientIp())) {
-            $this->tooManyRequests();
+            $this->json(['error' => 'You made too many requests. Try again later.'], 429);
             return;
         }
 
         $result = $this->secrets()->reveal($token, $this->postString('passphrase'));
         if ($result['status'] === 'bad_passphrase') {
-            $this->showReveal($token, 'The passphrase is incorrect.', 403);
+            $this->json(['error' => 'The passphrase is incorrect.'], 403);
             return;
         }
         if ($result['status'] !== 'ok') {
-            $this->gone();
+            $this->json(['error' => self::GONE_TEXT, 'gone' => true], 404);
             return;
         }
-        $this->render('reveal', [
-            'title' => 'Your secret',
-            'secret' => $result['secret'],
-            'viewsRemaining' => $result['views_remaining'],
+        $this->json([
+            'ciphertext' => Crypto::b64u($result['ciphertext']),
+            'views_remaining' => $result['views_remaining'],
         ]);
     }
 
@@ -197,16 +198,14 @@ final class Controller
 
     private function gone(): void
     {
-        $this->message(
-            'Secret not available',
-            'This secret does not exist, has expired, or has no views left.',
-            404
-        );
+        $this->message('Secret not available', self::GONE_TEXT, 404);
     }
 
-    private function tooManyRequests(): void
+    private function json(array $data, int $status = 200): void
     {
-        $this->message('Too many requests', 'You made too many requests. Try again later.', 429);
+        http_response_code($status);
+        header('Content-Type: application/json');
+        echo json_encode($data);
     }
 
     private function message(string $title, string $text, int $status = 200): void
@@ -254,11 +253,7 @@ final class Controller
 
     private function secrets(): SecretRepository
     {
-        return new SecretRepository(
-            $this->pdo(),
-            new Crypto($this->config->key('master_key')),
-            (int) $this->config->get('max_failed_attempts')
-        );
+        return new SecretRepository($this->pdo(), (int) $this->config->get('max_failed_attempts'));
     }
 
     private function limiter(): RateLimiter

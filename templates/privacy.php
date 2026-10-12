@@ -1,5 +1,5 @@
 <h1>Privacy policy</h1>
-<p class="lead">Last updated: 5 October 2026</p>
+<p class="lead">Last updated: 12 October 2026</p>
 
 <h2>Who we are</h2>
 <p>
@@ -25,16 +25,21 @@
     <li>We do not ask for your name, email address, or an account.</li>
     <li>We set no cookies and use no analytics.</li>
     <li>We send no data to third parties.</li>
-    <li>We encrypt each secret and delete it permanently. We keep no archives.</li>
+    <li>Your browser encrypts each secret before it sends it. We cannot decrypt it.</li>
+    <li>We delete each secret permanently. We keep no archives.</li>
 </ul>
 
 <h2>The data that we process</h2>
 
 <h3>Secrets</h3>
 <p>
-    When you save a secret, we encrypt it with XChaCha20-Poly1305 and store it in our database.
-    If you add a passphrase, the passphrase is part of the encryption key. We do not store the passphrase.
-    The server decrypts a secret only when a person uses the share link.
+    When you save a secret, your browser encrypts it with AES-256-GCM before it sends anything to us.
+    The encryption key is the part of the share link after <code>#</code>. Browsers never send that part to a server.
+    We store only the encrypted data, and we cannot decrypt it.
+</p>
+<p>
+    If you add a passphrase, the passphrase is part of the encryption key in your browser.
+    The server also keeps a one-way Argon2id hash of the passphrase, to count incorrect attempts. We do not store the passphrase.
 </p>
 <p>
     The database does not store the share link or the delete link. It stores only a one-way hash of each link.
@@ -65,8 +70,9 @@
 <p>
     Our web server records each request in an access log. The log includes your IP address, the date and time,
     the requested address, and your browser's user agent (the browser name, version, and operating system).
-    The requested address can include a share link or a delete link. We keep these logs for 3 months, then delete them.
-    A link in the log does not give access to a secret after that secret is deleted.
+    The requested address can include the path of a share link or a delete link, but never the encryption key,
+    because browsers do not send the part after <code>#</code>. We keep these logs for 3 months, then delete them.
+    A path in the log does not give access to a secret after that secret is deleted.
 </p>
 
 <h2>Why we process this data</h2>

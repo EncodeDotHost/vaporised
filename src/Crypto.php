@@ -4,20 +4,30 @@ declare(strict_types=1);
 
 namespace Vaporised;
 
-use InvalidArgumentException;
+use SodiumException;
 
+/**
+ * Server-side helpers. The server never holds an encryption key: the browser
+ * encrypts each secret, and the key travels in the share link after "#".
+ */
 final class Crypto
 {
-    public function __construct(private string $masterKey)
-    {
-        if (strlen($masterKey) !== SODIUM_CRYPTO_GENERICHASH_KEYBYTES) {
-            throw new InvalidArgumentException('Master key must be 32 bytes.');
-        }
-    }
-
     public static function b64u(string $bytes): string
     {
         return sodium_bin2base64($bytes, SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING);
+    }
+
+    /** @return string|null Null if the text is not base64url. */
+    public static function b64uDecode(string $text): ?string
+    {
+        if (!preg_match('/^[A-Za-z0-9_-]*$/', $text)) {
+            return null;
+        }
+        try {
+            return sodium_base642bin($text, SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING);
+        } catch (SodiumException) {
+            return null;
+        }
     }
 
     /** A 256-bit random token for a link (43 base64url characters). */
@@ -32,46 +42,19 @@ final class Crypto
         return hash('sha256', $token, true);
     }
 
-    /**
-     * @param string $idHash Binds the ciphertext to its database row.
-     * @return array{salt: string, nonce: string, ciphertext: string}
-     */
-    public function encrypt(string $plaintext, string $passphrase, string $idHash): array
+    /** Argon2id hash of a passphrase, so the server can count incorrect attempts. */
+    public static function hashPassphrase(string $passphrase): string
     {
-        $salt = random_bytes(SODIUM_CRYPTO_PWHASH_SALTBYTES);
-        $nonce = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
-        $key = $this->deriveKey($salt, $passphrase);
-        $ciphertext = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt($plaintext, $idHash, $nonce, $key);
-        sodium_memzero($key);
-
-        return ['salt' => $salt, 'nonce' => $nonce, 'ciphertext' => $ciphertext];
+        return sodium_crypto_pwhash_str(
+            $passphrase,
+            SODIUM_CRYPTO_PWHASH_OPSLIMIT_INTERACTIVE,
+            SODIUM_CRYPTO_PWHASH_MEMLIMIT_INTERACTIVE
+        );
     }
 
-    /** @return string|null Null if the passphrase is incorrect or the data is not authentic. */
-    public function decrypt(string $ciphertext, string $nonce, string $salt, string $passphrase, string $idHash): ?string
+    public static function verifyPassphrase(string $hash, string $passphrase): bool
     {
-        $key = $this->deriveKey($salt, $passphrase);
-        $plaintext = sodium_crypto_aead_xchacha20poly1305_ietf_decrypt($ciphertext, $idHash, $nonce, $key);
-        sodium_memzero($key);
-
-        return $plaintext === false ? null : $plaintext;
-    }
-
-    /** Per-secret key from the master key, the salt, and the optional passphrase. */
-    private function deriveKey(string $salt, string $passphrase): string
-    {
-        $passphraseKey = '';
-        if ($passphrase !== '') {
-            $passphraseKey = sodium_crypto_pwhash(
-                32,
-                $passphrase,
-                $salt,
-                SODIUM_CRYPTO_PWHASH_OPSLIMIT_INTERACTIVE,
-                SODIUM_CRYPTO_PWHASH_MEMLIMIT_INTERACTIVE,
-                SODIUM_CRYPTO_PWHASH_ALG_ARGON2ID13
-            );
-        }
-
-        return sodium_crypto_generichash($salt . $passphraseKey, $this->masterKey, 32);
+        // libsodium warns on an empty password, and a stored hash is never of an empty one.
+        return $passphrase !== '' && sodium_crypto_pwhash_str_verify($hash, $passphrase);
     }
 }

@@ -5,10 +5,23 @@ You send a username by email, save the password with Vaporised, and send only th
 The information is never all in one location.
 
 - The app sets no cookies and stores no identifiable information.
-- Secrets are encrypted at rest with XChaCha20-Poly1305.
+- The browser encrypts each secret with AES-256-GCM before it sends it. The key is in the share link after `#`.
+  Browsers never send that part to the server, so the server cannot decrypt a secret.
 - The sender sets a time limit (maximum 7 days) and a maximum number of views.
-- An optional passphrase adds to the encryption key.
+- An optional passphrase adds to the encryption key. The server keeps an Argon2id hash of it to count incorrect attempts.
 - The app deletes a secret at its last view or time limit, and keeps no archives.
+
+## How encryption works
+
+1. The browser makes a random 256-bit link key and shows it as 43 base64url characters.
+2. The browser derives an AES-256-GCM key with HKDF-SHA256 from the link key, a random salt,
+   and (with a passphrase) PBKDF2-SHA256 of the passphrase.
+3. The browser sends only the ciphertext to `POST /secrets`. The server stores it and returns the share link.
+4. The browser adds `#` and the link key to the share link.
+5. When the recipient opens the link, the browser reads the key from the fragment, gets the ciphertext from
+   `POST /s/{token}`, and decrypts it locally.
+
+The code is in `public/assets/crypto.js`. Node can run the same file, so `tests/crypto.js` tests it.
 
 ## Requirements
 
@@ -41,7 +54,7 @@ It also blocks `.git` and all other dotfiles. Each other folder has a `Require a
 4. Copy `config/config.example.php` to `/home/vaporised/vaporised-config.php`.
    This location is above the document root, so the web server cannot serve it.
 5. Set the database values and `base_url` in that file.
-6. Generate three different keys. Put them in `master_key`, `rate_limit_key`, and `pow_key`:
+6. Generate two different keys. Put them in `rate_limit_key` and `pow_key`:
 
    ```sh
    php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'
@@ -62,7 +75,11 @@ It also blocks `.git` and all other dotfiles. Each other folder has a `Require a
 9. In **MultiPHP Manager**, set the domain to PHP 8.3 or higher.
 10. In **Raw Access**, disable "Archive Logs". Apache access logs record IP addresses and link paths.
 
-> **Warning:** Keep a safe copy of `master_key`. If you lose or change it, all stored secrets become unreadable.
+## Upgrade from server-side encryption
+
+Older versions encrypted secrets on the server with a `master_key`. To upgrade an existing database,
+import `sql/upgrade-browser-encryption.sql`. It deletes all stored secrets, because the new code cannot read them.
+Then remove `master_key` from the config file.
 
 ## Deploy keys
 
@@ -111,6 +128,7 @@ Tests without a database:
 
 ```sh
 php tests/run.php
+node tests/crypto.js
 ```
 
 Tests with a database: create a test database, import `sql/schema.sql`, and make a test config file. Then run:

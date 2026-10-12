@@ -16,9 +16,8 @@ return [
         'password' => 'DATABASE_PASSWORD',
     ],
 
-    // Three different 32-byte keys in base64.
-    // If you change master_key, all stored secrets become unreadable.
-    'master_key' => '',
+    // Two different 32-byte keys in base64. Neither one encrypts secrets:
+    // the browser encrypts each secret, and the server never has that key.
     'rate_limit_key' => '',
     'pow_key' => '',
 
