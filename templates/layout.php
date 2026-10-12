@@ -25,6 +25,7 @@
     <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
+    <a class="ribbon" href="https://github.com/EncodeDotHost/vaporised">Secure code: verify on GitHub</a>
     <header>
         <a class="brand" href="/">
             <svg class="logo" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" focusable="false">
@@ -45,6 +46,7 @@
             <nav aria-label="Footer">
                 <a href="/help">Help</a>
                 <a href="/privacy">Privacy policy</a>
+                <a href="https://github.com/EncodeDotHost/vaporised">Source code</a>
             </nav>
             <p class="credit">An <a href="https://www.encodegroup.co.uk/">Encode Group</a> project</p>
         </div>

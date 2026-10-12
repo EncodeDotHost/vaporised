@@ -78,8 +78,8 @@ It also blocks `.git` and all other dotfiles. Each other folder has a `Require a
 ## Upgrade from server-side encryption
 
 Older versions encrypted secrets on the server with a `master_key`. To upgrade an existing database,
-import `sql/upgrade-browser-encryption.sql`. It deletes all stored secrets, because the new code cannot read them.
-Then remove `master_key` from the config file.
+import `sql/schema.sql` again. It drops and recreates the `secrets` table, because the new code cannot read
+the old rows. Then remove `master_key` from the config file.
 
 ## Deploy keys
 

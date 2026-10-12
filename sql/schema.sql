@@ -1,6 +1,13 @@
 -- Vaporised database schema (MySQL 8.4). All times are UTC.
+--
+-- Import this file for a new install and again after a schema change.
+-- WARNING: it deletes all stored secrets. Secrets live at most 7 days, and
+-- the browser holds the only key, so the server cannot migrate old rows.
+-- The other tables keep their rows.
 
-CREATE TABLE IF NOT EXISTS secrets (
+DROP TABLE IF EXISTS secrets;
+
+CREATE TABLE secrets (
     id_hash          BINARY(32)       NOT NULL,  -- SHA-256 of the share token
     delete_hash      BINARY(32)       NOT NULL,  -- SHA-256 of the delete token
     ciphertext       MEDIUMBLOB       NOT NULL,  -- Made by the browser (AES-256-GCM). The server has no key.

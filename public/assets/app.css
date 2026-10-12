@@ -238,6 +238,38 @@ main li + li {
     margin-top: 0.25rem;
 }
 
+/* Corner ribbon that links to the public source code. */
+.ribbon {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 10;
+    width: 15rem;
+    padding: 0.4rem 0;
+    transform: translate(3.6rem, 2.6rem) rotate(45deg);
+    transform-origin: center;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    letter-spacing: 0.02em;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.ribbon:hover,
+.ribbon:focus-visible {
+    text-decoration: underline;
+}
+
+@media (max-width: 40rem) {
+    .ribbon {
+        display: none;
+    }
+}
+
 @media (max-width: 30rem) {
     .grid {
         grid-template-columns: 1fr;
