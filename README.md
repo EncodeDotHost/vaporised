@@ -1,95 +1,99 @@
-# vaporised
+# Vaporised
 
-Source code for www.vaporised.co.uk. The app helps you send sensitive information through email.
-You send a username by email, save the password with Vaporised, and send only the link.
-The information is never all in one location.
+Vaporised is a small web app for sending a password or other secret by a link that deletes itself.
+The browser encrypts the secret before it leaves your device. The server stores only ciphertext and
+never has the key, so the operator cannot read your secrets.
 
-- The app sets no cookies and stores no identifiable information.
-- The browser encrypts each secret with AES-256-GCM before it sends it. The key is in the share link after `#`.
-  Browsers never send that part to the server, so the server cannot decrypt a secret.
-- The sender sets a time limit (maximum 7 days) and a maximum number of views.
-- An optional passphrase adds to the encryption key. The server keeps an Argon2id hash of it to count incorrect attempts.
-- The app deletes a secret at its last view or time limit, and keeps no archives.
+The public instance is at [www.vaporised.co.uk](https://www.vaporised.co.uk). You can also host your own.
 
-## How encryption works
+## Features
 
-1. The browser makes a random 256-bit link key and shows it as 43 base64url characters.
+- Sends a secret as a link. The link works for a time limit (up to 7 days) and a number of views that the sender sets.
+- Encrypts in the browser with AES-256-GCM. The key is the part of the link after `#`, which browsers never send to a server.
+- Optional passphrase. It adds to the encryption key, and the server deletes the secret after too many incorrect attempts.
+- Delete link, so the sender can remove a secret early.
+- No accounts, no cookies, no analytics, no third-party assets, no stored IP addresses.
+- Plain PHP and vanilla JavaScript. No framework, no Composer packages, no build step.
+
+## How it works
+
+1. The browser makes a random 256-bit link key.
 2. The browser derives an AES-256-GCM key with HKDF-SHA256 from the link key, a random salt,
    and (with a passphrase) PBKDF2-SHA256 of the passphrase.
-3. The browser sends only the ciphertext to `POST /secrets`. The server stores it and returns the share link.
-4. The browser adds `#` and the link key to the share link.
-5. When the recipient opens the link, the browser reads the key from the fragment, gets the ciphertext from
-   `POST /s/{token}`, and decrypts it locally.
+3. The browser sends only the ciphertext to the server. The server stores it and returns a share link.
+4. The browser adds `#` and the link key to the share link. The sender copies the full link.
+5. When the recipient opens the link, the browser reads the key from the fragment, fetches the ciphertext,
+   and decrypts it locally. Each fetch uses one view.
 
-The code is in `public/assets/crypto.js`. Node can run the same file, so `tests/crypto.js` tests it.
+The server stores a SHA-256 hash of each link token, not the token. With a passphrase, it stores an Argon2id
+hash of the passphrase, not the passphrase. The encryption code is in `public/assets/crypto.js`, and
+`tests/crypto.js` runs the same file in Node.
+
+### What this does not protect against
+
+- The server serves the JavaScript. An operator or attacker who controls the server could serve altered code.
+  Use an instance that you trust, or host your own.
+- The full link, including the key, is in the browser history and in any message where it was sent.
+- Anyone with the full link (and the passphrase, if set) can read the secret while it is live.
 
 ## Requirements
 
-- PHP 8.3, 8.4, or 8.5 with `sodium`, `pdo_mysql`, and `mbstring`.
-- MySQL 8.4.
-- Apache with `mod_rewrite` and `.htaccess` permitted.
-- No Composer packages.
+- PHP 8.3 or later with the `sodium`, `pdo_mysql`, and `mbstring` extensions.
+- MySQL 8.4 or MariaDB 10.6 or later.
+- Apache with `mod_rewrite` and `.htaccess` permitted, or another web server with equivalent rules.
+- HTTPS. The browser crypto API needs a secure context, and the app forces HTTPS except on `localhost`.
+- Node (any current version) only to run the JavaScript tests.
 
-## Layout
+## Install
 
-The repository root is the document root. The root `.htaccess` sends all requests to `public/`.
-It also blocks `.git` and all other dotfiles. Each other folder has a `Require all denied` file.
+These steps work on any host. See [Install on cPanel](#install-on-cpanel) for that control panel.
 
-| Path | Contents |
-|---|---|
-| `public/` | Front controller and static assets |
-| `src/` | Application classes |
-| `templates/` | HTML templates |
-| `bin/purge.php` | Cron script |
-| `sql/schema.sql` | Database tables |
-| `config/config.example.php` | Template for the config file |
-| `tests/run.php` | Tests |
-
-## Install on cPanel
-
-1. In **Git Version Control**, clone the repository into `/home/vaporised/public_html`.
-   Use a read-only deploy key (see below).
-2. In **MySQL Databases**, create a database and a user, and give the user all privileges on the database.
-3. In **phpMyAdmin**, import `sql/schema.sql` into the database.
-4. Copy `config/config.example.php` to `/home/vaporised/vaporised-config.php`.
-   This location is above the document root, so the web server cannot serve it.
-5. Set the database values and `base_url` in that file.
-6. Generate two different keys. Put them in `rate_limit_key` and `pow_key`:
+1. Clone the repository so that the repository root is the document root of the site.
+   The root `.htaccess` sends all requests to `public/` and blocks every other folder.
+2. Create a MySQL database and a user with all privileges on it, and import `sql/schema.sql`.
+3. Copy `config/config.example.php` to `vaporised-config.php` one level above the document root,
+   so that the web server cannot serve it. Set the file permissions to `600`.
+4. In that file, set the database values and `base_url` (the public address of the site).
+5. Generate two different keys and put them in `rate_limit_key` and `pow_key`:
 
    ```sh
    php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'
    ```
 
-7. Set the file permissions to `600`:
+6. Add a cron job that runs each 5 minutes to delete expired rows:
 
    ```sh
-   chmod 600 /home/vaporised/vaporised-config.php
+   */5 * * * * php /path/to/document-root/bin/purge.php
    ```
 
-8. In **Cron Jobs**, add this job to run each 5 minutes (`*/5 * * * *`):
+7. Open the site, save a test secret, and open the share link in another browser.
 
-   ```sh
-   /opt/cpanel/ea-php83/root/usr/bin/php /home/vaporised/public_html/bin/purge.php
-   ```
+The app reads the config file from `../vaporised-config.php` relative to the repository root.
+To use another location, set the `VAPORISED_CONFIG` environment variable to the full path.
 
-9. In **MultiPHP Manager**, set the domain to PHP 8.3 or higher.
-10. In **Raw Access**, disable "Archive Logs". Apache access logs record IP addresses and link paths.
+### Install on cPanel
 
-## Upgrade from server-side encryption
+1. In **Git Version Control**, clone the repository into `public_html`. Use a read-only deploy key (see below).
+2. In **MySQL Databases**, create the database and user. In **phpMyAdmin**, import `sql/schema.sql`.
+3. In **File Manager**, copy the config file to your home directory (one level above `public_html`), set its values,
+   and set its permissions to `600`.
+4. In **Cron Jobs**, add the purge job. Use the PHP binary for your PHP version, for example
+   `/opt/cpanel/ea-php83/root/usr/bin/php`.
+5. In **MultiPHP Manager**, set the domain to PHP 8.3 or later.
+6. In **Raw Access**, disable "Archive Logs". Apache access logs record IP addresses and link paths
+   (never the key, which is after `#`).
 
-Older versions encrypted secrets on the server with a `master_key`. To upgrade an existing database,
-import `sql/schema.sql` again. It drops and recreates the `secrets` table, because the new code cannot read
-the old rows. Then remove `master_key` from the config file.
+### Deploy keys
 
-## Deploy keys
+A deploy key lets the server pull from GitHub without a password and without write access.
 
-1. On the server, in **Terminal**, generate a key without a passphrase:
+1. On the server, generate a key without a passphrase:
 
    ```sh
    ssh-keygen -t ed25519 -f ~/.ssh/vaporised_deploy -N "" -C "vaporised deploy"
    ```
 
-2. Add this SSH configuration to `~/.ssh/config`:
+2. Add this to `~/.ssh/config` on the server:
 
    ```
    Host github-vaporised
@@ -99,49 +103,81 @@ the old rows. Then remove `master_key` from the config file.
        IdentitiesOnly yes
    ```
 
-3. In GitHub, go to the repository **Settings > Deploy keys**.
-   Add the contents of `~/.ssh/vaporised_deploy.pub`. Do not give write access.
-4. In cPanel **Git Version Control**, use this clone URL:
-
-   ```
-   git@github-vaporised:OWNER/vaporised.git
-   ```
-
-5. To deploy a change, use **Pull or Deploy > Update from Remote**.
+3. In GitHub, go to the repository **Settings > Deploy keys** and add the contents of `~/.ssh/vaporised_deploy.pub`.
+   Do not give write access.
+4. Clone with `git@github-vaporised:OWNER/vaporised.git`, where `OWNER` is the GitHub account that holds your fork.
+5. To deploy a change, run `git pull` on the server, or use **Pull or Deploy > Update from Remote** in cPanel.
 
 ## Configuration
 
-All values are in `/home/vaporised/vaporised-config.php`.
+All values are in the config file. Each key has a comment in `config/config.example.php`.
 
 | Key | Purpose |
 |---|---|
 | `base_url` | The public address of the site. Requests for any other host name redirect here (301), and it is the canonical URL in the meta tags |
-| `ttl_choices` | Time limit choices. The app ignores values above 7 days |
-| `max_views` | Highest view count a sender can set |
+| `db` | PDO DSN, user, and password |
+| `rate_limit_key`, `pow_key` | 32-byte keys in base64. They sign rate-limit hashes and proof-of-work challenges. They never encrypt secrets |
 | `max_secret_chars` | Maximum secret length |
+| `max_views` | Highest view count a sender can set |
 | `max_failed_attempts` | Incorrect passphrase attempts before the app deletes the secret |
+| `ttl_choices` | Time limit choices in seconds. The app ignores values above 7 days |
 | `rate_limit` | Window length and maximum create and reveal requests for each hashed IP address |
-| `pow.difficulty_bits` | Proof-of-work difficulty. Each added bit doubles the browser work |
+| `pow` | Proof-of-work difficulty and challenge lifetime. Each added bit doubles the browser work |
 
-## Tests
+## Layout
 
-Tests without a database:
+| Path | Contents |
+|---|---|
+| `public/` | Front controller, stylesheet, and JavaScript (`crypto.js` encrypts, `app.js` drives the pages) |
+| `src/` | Application classes |
+| `templates/` | HTML templates |
+| `bin/purge.php` | Cron script |
+| `sql/schema.sql` | Database tables |
+| `config/config.example.php` | Template for the config file |
+| `tests/` | `run.php` (PHP) and `crypto.js` (Node) |
+| `CLAUDE.md` | Notes for AI coding assistants |
 
-```sh
-php tests/run.php
-node tests/crypto.js
-```
+Each folder except `public/` has a `.htaccess` with `Require all denied`.
 
-Tests with a database: create a test database, import `sql/schema.sql`, and make a test config file. Then run:
+## Development
 
-```sh
-VAPORISED_CONFIG=/path/to/test-config.php php tests/run.php
-```
-
-## Local development
+Make a dev config from the example. Set `base_url` to `http://localhost:8000`, or every request redirects to
+the production address. Then:
 
 ```sh
 VAPORISED_CONFIG=/path/to/dev-config.php php -S localhost:8000 -t public public/index.php
 ```
 
 The built-in server does not read `.htaccess`. Use Apache to test the rewrite and deny rules.
+
+### Tests
+
+Without a database:
+
+```sh
+php tests/run.php
+node tests/crypto.js
+```
+
+With a database: create a test database, import `sql/schema.sql`, make a test config file, and run:
+
+```sh
+VAPORISED_CONFIG=/path/to/test-config.php php tests/run.php
+```
+
+## Upgrading
+
+Import `sql/schema.sql` again after a schema change. It drops and recreates the `secrets` table and keeps
+the other tables. Secrets live at most 7 days, and the server cannot migrate rows it cannot decrypt.
+
+Versions before v2.0.0 encrypted secrets on the server with a `master_key`. After you import the
+schema, remove `master_key` from the config file.
+
+## Security
+
+To report a vulnerability, use **Security > Report a vulnerability** on the GitHub repository.
+Do not open a public issue for a security problem.
+
+## Licence
+
+GNU General Public License v3.0. See `LICENSE`.

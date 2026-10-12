@@ -1,8 +1,8 @@
 <?php
 
-// Copy this file to one level above the document root, for example
-// /home/vaporised/vaporised-config.php, then set the values. Do not put the
-// real file in Git.
+// Copy this file to vaporised-config.php one level above the document root,
+// then set the values. Do not put the real file in Git. The VAPORISED_CONFIG
+// environment variable can point to another location.
 //
 // Generate each key with:
 //   php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'

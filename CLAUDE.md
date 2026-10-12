@@ -59,7 +59,8 @@ The server must never be able to decrypt a secret.
 
 ## Deployment
 
-cPanel, Git deploy from GitHub with a read-only deploy key, document root is the repository root.
-The config file lives one level above the document root at `/home/vaporised/vaporised-config.php`.
+Git pull on the server with a read-only deploy key. The repository root is the document root.
+The config file lives one level above the document root as `vaporised-config.php`, or wherever
+`VAPORISED_CONFIG` points.
 `sql/schema.sql` drops and recreates the `secrets` table, so a schema change only needs an edit there and a
 README note. Secrets live at most 7 days, and the server cannot migrate rows it cannot decrypt.
