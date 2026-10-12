@@ -24,6 +24,9 @@ final class Controller
 
     public function dispatch(string $method, string $path): void
     {
+        if ($this->redirectToBaseUrl()) {
+            return;
+        }
         if ($method === 'HEAD') {
             $method = 'GET';
         }
@@ -196,6 +199,25 @@ final class Controller
         $this->message('Secret deleted', 'The secret is deleted. The share link does not work now.');
     }
 
+    /**
+     * Send a request for any other host name to the host in base_url, so that
+     * the site has one address. The browser keeps the "#" part of a link.
+     */
+    private function redirectToBaseUrl(): bool
+    {
+        $base = parse_url((string) $this->config->get('base_url'));
+        $expected = strtolower($base['host'] ?? '') . (isset($base['port']) ? ':' . $base['port'] : '');
+        $actual = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+        if ($expected === '' || $actual === $expected) {
+            return false;
+        }
+        $target = rtrim((string) $this->config->get('base_url'), '/') . ($_SERVER['REQUEST_URI'] ?? '/');
+        http_response_code(301);
+        header('Location: ' . $target);
+
+        return true;
+    }
+
     private function gone(): void
     {
         $this->message('Secret not available', self::GONE_TEXT, 404);
@@ -224,6 +246,7 @@ final class Controller
         $vars['robots'] = $canonicalPath !== null ? 'index, follow' : 'noindex, nofollow';
         $vars['baseUrl'] = $baseUrl;
         $vars['pageUrl'] = $baseUrl . ($canonicalPath ?? '/');
+        $vars['canonicalUrl'] = $canonicalPath !== null ? $baseUrl . $canonicalPath : null;
         $vars['description'] ??= self::DEFAULT_DESCRIPTION;
         $vars['pageTitle'] ??= $vars['title'] . ' – Vaporised';
         header('X-Robots-Tag: ' . $vars['robots']);

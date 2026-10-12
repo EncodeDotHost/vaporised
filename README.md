@@ -115,6 +115,7 @@ All values are in `/home/vaporised/vaporised-config.php`.
 
 | Key | Purpose |
 |---|---|
+| `base_url` | The public address of the site. Requests for any other host name redirect here (301), and it is the canonical URL in the meta tags |
 | `ttl_choices` | Time limit choices. The app ignores values above 7 days |
 | `max_views` | Highest view count a sender can set |
 | `max_secret_chars` | Maximum secret length |

@@ -7,6 +7,9 @@
     <meta name="referrer" content="no-referrer">
     <title><?= e($pageTitle) ?></title>
     <meta name="description" content="<?= e($description) ?>">
+    <?php if ($canonicalUrl !== null): ?>
+    <link rel="canonical" href="<?= e($canonicalUrl) ?>">
+    <?php endif; ?>
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Vaporised">
     <meta property="og:locale" content="en_GB">

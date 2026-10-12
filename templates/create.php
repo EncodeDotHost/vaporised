@@ -27,7 +27,7 @@
             </div>
             <div>
                 <label for="views">Maximum views</label>
-                <input id="views" name="views" type="number" min="1" max="<?= e($maxViews) ?>" value="1" required>
+                <input id="views" name="views" type="number" min="1" max="<?= e($maxViews) ?>" value="3" required>
             </div>
         </div>
 
